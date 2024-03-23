@@ -10,8 +10,6 @@ public:
 	T1 first;
 	T2 second;
 	constexpr pair() : first(), second() {}
-	pair(const pair &other) = default;
-	pair(pair &&other) = default;
 	pair(const T1 &x, const T2 &y) : first(x), second(y) {}
 	template<class U1, class U2>
 	pair(U1 &&x, U2 &&y) : first(x), second(y) {}
