@@ -22,85 +22,121 @@ public:
 namespace sjtu {
 template<class T> class double_list{
 public:
-	/**
-	 * elements
-	 * add whatever you want
-	*/
-
-// --------------------------
-	/**
-	 * the follows are constructors and destructors
-	 * you can also add some if needed.
-	*/
-	double_list(){
+	struct Node{
+		T data;
+		Node *pre, *next;
+		Node(const T& data):data(data), pre(nullptr), next(nullptr){}
+	};
+	Node *head, *tail;
+	size_t s;
+	// --------------------------
+	double_list():head(nullptr), tail(nullptr), s(0){
 	}
 	double_list(const double_list<T> &other){
+		head = nullptr;
+		tail = nullptr;
+		Node *tmp = other.head;
+		while(tmp) {
+			insert_tail(tmp->data);
+			tmp = tmp->next;
+		}
 	}
 	~double_list(){
+		clear();
 	}
-
 	class iterator{
 	public:
-    	/**
-		 * elements
-		 * add whatever you want
-		*/
-	    // --------------------------
-        /**
-		 * the follows are constructors and destructors
-		 * you can also add some if needed.
-		*/
+		Node *current;
+		// --------------------------
 		iterator(){}
+		iterator(Node* t) : current(t){}
 		iterator(const iterator &t){
+			current = t.current;
 		}
 		~iterator(){}
         /**
 		 * iter++
 		 */
 		iterator operator++(int) {
+			iterator old = *this;
+			if(current)
+				current = current->next;
+			else
+				throw std::out_of_range("invalid++");
+			return old;
 		}
         /**
 		 * ++iter
 		 */
 		iterator &operator++() {
+			if(current)
+				current = current -> next;
+			else
+				throw std::out_of_range("++invalid");
+			return *this;	
 		}
         /**
 		 * iter--
 		 */
 		iterator operator--(int) {
+			iterator old = *this;
+			if(current)
+				current = current->pre;
+			else
+				throw std::out_of_range("invalid--");
+			return old;
 		}
         /**
 		 * --iter
 		 */
 		iterator &operator--() {
+			if(current)
+				current = current->pre;
+			else
+				throw std::out_of_range("--invalid");
+			return *this;
 		}
 		/**
 		 * if the iter didn't point to a value
 		 * throw " invalid"
 		*/
 		T &operator*() const {
+			if(!current)
+				throw std::out_of_range("invalid");
+			return this->current->data;
 		}
         /**
          * other operation
         */
 		T *operator->() const noexcept {
+			if(!current)
+				throw std::out_of_range("invalid");
+			return &(current->data);
 		}
 		bool operator==(const iterator &rhs) const {
-    	}
+			return current == rhs.current;
+		}
 		bool operator!=(const iterator &rhs) const {
+			return current != rhs.current;
 		}
 	};
 	/**
 	 * return an iterator to the beginning
 	 */
 	iterator begin(){
+		return iterator(head);
 	}
 	/**
 	 * return an iterator to the ending
 	 * in fact, it returns the iterator point to nothing,
 	 * just after the last element.
 	 */
+	iterator get_tail() {
+		return iterator(tail);
+	}
 	iterator end(){
+		return iterator(nullptr);
+
 	}
 	/**
 	 * if the iter didn't point to anything, do nothing,
@@ -114,27 +150,101 @@ public:
 	 *  don't contain 2nd elememt.
 	*/
 	iterator erase(iterator pos){
+		if(!pos.current)
+			return iterator(nullptr);
+		Node *tmp = pos.current;
+		if(tmp->pre)
+			tmp->pre->next = tmp->next;
+		else
+			head = tmp->next;
+		if(tmp->next)
+			tmp->next->pre = tmp->pre;
+		else {
+			tail = tmp->pre;
+			return iterator(nullptr);
+		}
+		iterator tmp_next = iterator(tmp->next);
+		delete tmp;
+		s--;
+		return tmp_next;
 	}
 
 	/**
 	 * the following are operations of double list
 	*/
 	void insert_head(const T &val){
+		Node *new_node = new Node(val);
+		if(!head)
+			head = tail = new_node;
+		else {
+			head->pre = new_node;
+			new_node->next = head;
+			head = new_node;
+		}
+		s++;
 	}
 	void insert_tail(const T &val){
+		Node *new_node = new Node(val);
+		if(!tail)
+			head = tail = new_node;
+		else {
+			tail->next = new_node;
+			new_node->pre = tail;
+			tail = new_node;
+		}
+		s++;
 	}
 	void delete_head(){
+		if(!head)
+			return;
+		if(s == 1)
+			head = tail = nullptr;
+		else {
+			Node* tmp = head;
+			head = head->next;
+			head->pre = nullptr;
+			s--;
+			delete tmp;
+		}
 	}
 	void delete_tail(){
+		if(!tail)
+			return;
+		if(s == 1)
+			head = tail = nullptr;
+		else {
+			Node *tmp = tail;
+			tail = tail->pre;
+			tail->next = nullptr;
+			s--;
+			delete tmp;
+		}
 	}
-	/**
-	 * if didn't contain anything, return true, 
-	 * otherwise false.
-	 */
 	bool empty(){
+		return s == 0;
+	}
+	void clear() {
+		Node* tmp = head;
+		while(tmp) {
+			Node* tmp_aft = tmp;
+			tmp = tmp->next;
+			delete tmp_aft;
+		}
+		head = nullptr;
+		tail = nullptr;
+		s = 0;
+	}
+	void print() const {
+		Node *tmp = head;
+		while(tmp) {
+			std::cout << tmp->data << " ";
+			tmp = tmp->next;
+		}
+		std::cout << std::endl;
 	}
 };
 
+static const int initial_size = 10;
 template<
 	class Key,
 	class T,
@@ -143,40 +253,43 @@ template<
 > class hashmap{
 public:
 	using value_type = pair<const Key, T>;
-	/**
-	 * elements
-	 * add whatever you want
-	*/
-
+	std::vector<double_list<value_type>*> value;
+	size_t size;
+	Hash hash_function;
+	Equal equal_function;
 // --------------------------
-
-	/**
-	 * the follows are constructors and destructors
-	 * you can also add some if needed.
-	*/
 	hashmap() {
+		size = 0;
+		value = std::vector<double_list<value_type>*>(initial_size, nullptr);
 	}
 	hashmap(const hashmap &other){
+		size = other.size;
+		value = other.value;
+		equal_function = other.equal_function;
+		hash_function = other.hash_function;
 	}
 	~hashmap(){
 	}
 	hashmap & operator=(const hashmap &other){
+		if(this != &other) {
+			size = other.size;
+			value = other.value;
+			equal_function = other.equal_function;
+			hash_function = other.hash_function;
+		}
+		return this;
 	}
-
 	class iterator{
 	public:
-    	/**
-         * elements
-         * add whatever you want
-        */
-// --------------------------
-        /**
-         * the follows are constructors and destructors
-         * you can also add some if needed.
-        */
+
+		double_list<value_type>* value_ptr;
+		// --------------------------
 		iterator(){
+			value_ptr(nullptr);
 		}
 		iterator(const iterator &t){
+			value_ptr = t->value_ptr;
+
 		}
 		~iterator(){}
 
@@ -193,7 +306,7 @@ public:
 		value_type *operator->() const noexcept {
 		}
 		bool operator==(const iterator &rhs) const {
-    	}
+		}
 		bool operator!=(const iterator &rhs) const {
 		}
 	};
