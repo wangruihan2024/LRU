@@ -253,44 +253,51 @@ template<
 > class hashmap{
 public:
 	using value_type = pair<const Key, T>;
-	std::vector<double_list<value_type>*> value;
-	size_t size;
+	std::vector<double_list<value_type>*> bucket;
+	size_t size; // record the number of elements
 	Hash hash_function;
-	Equal equal_function;
+	Equal equal_function; 
 // --------------------------
 	hashmap() {
 		size = 0;
-		value = std::vector<double_list<value_type>*>(initial_size, nullptr);
+		bucket = std::vector<double_list<value_type> *>(initial_size, nullptr);
 	}
 	hashmap(const hashmap &other){
 		size = other.size;
-		value = other.value;
 		equal_function = other.equal_function;
 		hash_function = other.hash_function;
+		bucket.resize(other.bucket.size(), nullptr);
+		for(size_t i = 0; i < other.bucket.size(); i++) 
+			if(other.bucket[i])
+				bucket[i] = new double_list<value_type>(*other.bucket[i]);
 	}
-	~hashmap(){
-	}
+	~hashmap(){}
 	hashmap & operator=(const hashmap &other){
 		if(this != &other) {
+			clear();
 			size = other.size;
-			value = other.value;
 			equal_function = other.equal_function;
 			hash_function = other.hash_function;
+			for(size_t i = 0; i < other.bucket.size(); i++)
+				if(other.bucket[i])
+					bucket[i] = new double_list<value_type>(*other.bucket[i]);
 		}
-		return this;
+		return *this;
 	}
 	class iterator{
 	public:
-
-		double_list<value_type>* value_ptr;
+		double_list<value_type> **bucket_ptr; //桶指针
+		double_list<value_type> **end_ptr;
+		typename double_list<value_type>::Node *current_node; //链表节点
 		// --------------------------
-		iterator(){
-			value_ptr(nullptr);
-		}
+		iterator():bucket_ptr(nullptr), end_ptr(nullptr), current_node(nullptr){}
 		iterator(const iterator &t){
-			value_ptr = t->value_ptr;
-
+			bucket_ptr = t.bucket_ptr;
+			end_ptr = t.end_ptr;
+			current_node = t.current_node;
 		}
+		iterator(double_list<value_type>** start, double_list<value_type>** end_ptr, typename double_list<value_type>::Node* node)
+            : bucket_ptr(start), end_ptr(end_ptr), current_node(node) {}
 		~iterator(){}
 
         /**
@@ -298,37 +305,80 @@ public:
 		 * throw 
 		*/
 		value_type &operator*() const {
+			if(!current_node)
+				throw std::out_of_range("point to nothing");
+			return current_node->data;
 		}
 
         /**
 		 * other operation
 		*/
+
 		value_type *operator->() const noexcept {
+			if(!current_node)
+				throw std::out_of_range("point to nothing");
+			return &(current_node->data);
 		}
 		bool operator==(const iterator &rhs) const {
+			return bucket_ptr == rhs.bucket_ptr && current_node == rhs.current_node;
 		}
 		bool operator!=(const iterator &rhs) const {
+			return !(*this == rhs);
 		}
 	};
 
 	void clear(){
+		for(size_t i = 0; i < bucket.size(); i++) {
+			if (bucket[i]) {
+                delete bucket[i];
+                bucket[i] = nullptr;
+            }
+		}
+		size = 0;
 	}
 	/**
 	 * you need to expand the hashmap dynamically
 	*/
 	void expand(){
+		size_t new_size = 2 * bucket.size();
+		std::vector<double_list<value_type> *> new_bucket(new_size, nullptr);
+		for (size_t i = 0; i < bucket.size(); i++) {
+			if(bucket[i] == nullptr)
+				continue;
+			for (auto it = bucket[i]->begin(); it != bucket[i]->end(); it++) {
+				size_t hash_value = hash_function(it->first) % new_size;
+				if (!new_bucket[hash_value]) 
+					new_bucket[hash_value] = new double_list<value_type>();
+				new_bucket[hash_value]->insert_tail(*it);
+			}
+		}
+		clear();
+		bucket = std::move(new_bucket);
 	}
 
     /**
      * the iterator point at nothing
     */
 	iterator end() const{
+		return iterator(const_cast<double_list<value_type> **>(bucket.data()) + bucket.size(),
+						const_cast<double_list<value_type> **>(bucket.data()) + bucket.size(),
+						nullptr);
 	}
 	/**
 	 * find, return a pointer point to the value
 	 * not find, return the end (point to nothing)
 	*/
 	iterator find(const Key &key)const{
+		size_t index = hash_function(key) % bucket.size();
+        if (bucket[index]) {
+            for (auto it = bucket[index]->begin(); it != bucket[index]->end(); it++) {
+                if (equal_function(it->first, key)) {
+                    return iterator(const_cast<double_list<value_type>**>(bucket.data()) + index,
+					const_cast<double_list<value_type>**>(bucket.data()) + bucket.size(), it.current);
+                }
+            }
+        }
+        return end();
 	}
 	/**
 	 * already have a value_pair with the same key
@@ -337,12 +387,44 @@ public:
 	 * -> insert the value_pair, return true
 	*/
 	sjtu::pair<iterator,bool> insert(const value_type &value_pair){
+		iterator tmp_it = find(value_pair.first);
+		if(tmp_it != end()) {
+			tmp_it->second = value_pair.second;
+			return sjtu::pair(tmp_it, false);
+		}else {
+			size_t index = hash_function(value_pair.first) % bucket.size();
+			if(!bucket[index]) {
+				bucket[index] = new double_list<value_type>();
+			}
+			bucket[index]->insert_tail(value_pair);
+			size++;
+			typename double_list<value_type>::Node* inserted_node = bucket[index]->tail;
+			if(size > bucket.size()) {
+				expand();
+				index = hash_function(value_pair.first) % bucket.size();
+				inserted_node = bucket[index]->tail;
+			}	
+			return pair(iterator(bucket.data() + index, bucket.data() + bucket.size(), inserted_node), true);
+		}
 	}
 	/**
 	 * the value_pair exists, remove and return true
 	 * otherwise, return false
 	*/
 	bool remove(const Key &key){
+		iterator tmp_it = find(key);
+		if(tmp_it == end() || tmp_it.current_node == nullptr) 
+			return false;
+		size_t index = hash_function(key) % bucket.size();
+		if(bucket[index]) {
+			bucket[index]->erase(tmp_it.current_node);
+			size--;
+			if(bucket[index]->empty()) {
+				delete bucket[index];
+				bucket[index] = nullptr;
+			}
+		}
+		return true;
 	}
 };
 
