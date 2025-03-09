@@ -33,14 +33,16 @@ public:
 	double_list():head(nullptr), tail(nullptr), s(0){
 	}
 	double_list(const double_list<T> &other){
-		head = nullptr;
+        // clear();
+        head = nullptr;
 		tail = nullptr;
 		Node *tmp = other.head;
 		while(tmp) {
 			insert_tail(tmp->data);
 			tmp = tmp->next;
 		}
-	}
+        s = other.s;
+    }
 	~double_list(){
 		clear();
 	}
@@ -81,10 +83,10 @@ public:
 		 */
 		iterator operator--(int) {
 			iterator old = *this;
-			if(current)
-				current = current->pre;
-			else
+			if(!current || !(current->pre))
 				throw std::out_of_range("invalid--");
+			else
+				current = current->pre;
 			return old;
 		}
         /**
@@ -156,7 +158,7 @@ public:
 	*/
 	iterator erase(iterator pos){
 		if(!pos.current)
-			return iterator(nullptr);
+			return end();
 		Node *tmp = pos.current;
 		if(tmp->pre)
 			tmp->pre->next = tmp->next;
@@ -164,10 +166,8 @@ public:
 			head = tmp->next;
 		if(tmp->next)
 			tmp->next->pre = tmp->pre;
-		else {
+		else 
 			tail = tmp->pre;
-			return iterator(nullptr);
-		}
 		iterator tmp_next = iterator(tmp->next);
 		delete tmp;
 		s--;
@@ -727,7 +727,7 @@ public:
      * save the value_pair in the memory
      * delete something in the memory if necessary
     */
-    void save(const value_type &v) const{
+    void save(const value_type &v) {
 		if(map.count(v.first)) {
 			map.remove(map.find(v.first));
 		}
@@ -740,7 +740,7 @@ public:
     /**
      * return a pointer contain the value
     */
-    Matrix<int>* get(const Integer &v) const{
+    Matrix<int>* get(const Integer &v) {
 		auto it = map.find(v);
 		if(it == map.end())
 			return nullptr;
