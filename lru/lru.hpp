@@ -179,9 +179,10 @@ public:
 	*/
 	void insert_head(const T &val){
 		Node *new_node = new Node(val);
-		if(!head)
-			head = tail = new_node;
-		else {
+		if(!head) {
+			head = new_node;
+			tail = new_node;
+		}else {
 			head->pre = new_node;
 			new_node->next = head;
 			head = new_node;
@@ -190,9 +191,10 @@ public:
 	}
 	void insert_tail(const T &val){
 		Node *new_node = new Node(val);
-		if(!tail)
-			head = tail = new_node;
-		else {
+		if(!tail) {
+			head = new_node;
+			tail = new_node;
+		}else {
 			tail->next = new_node;
 			new_node->pre = tail;
 			tail = new_node;
@@ -225,7 +227,7 @@ public:
 			delete tmp;
 		}
 	}
-	bool empty(){
+	bool empty () const{
 		return s == 0;
 	}
 	void clear() {
@@ -719,9 +721,9 @@ class lru{
     using lmap = sjtu::linked_hashmap<Integer,Matrix<int>,Hash,Equal>;
     using value_type = sjtu::pair<const Integer, Matrix<int> >;
 public:
-	size_t capacity;
+	size_t c;
 	mutable lmap map;
-	lru(int size):capacity(size){}
+	lru(int size):c(size){}
     ~lru(){}
     /**
      * save the value_pair in the memory
@@ -731,7 +733,7 @@ public:
 		if(map.count(v.first)) {
 			map.remove(map.find(v.first));
 		}
-		if(map.size() >= capacity) {
+		if(map.size() >= c) {
 			auto ol = map.begin();
 			map.remove(ol);
 		}
@@ -755,10 +757,9 @@ public:
      * this operation follows the order, but don't
      * change the order.
     */
-    void print(){
-		for (auto it = map.begin(); it != map.end(); ++it) {
+    void print() const{
+		for (auto it = map.begin(); it != map.end(); it++) 
         	std::cout << it->first.val << " " << it->second << std::endl;
-		}
     }
 };
 }
